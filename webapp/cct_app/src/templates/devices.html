@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devices - CCT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand">
+                <i class="bi bi-thermometer-half"></i> CCT
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web_bp.dashboard') }}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('web_bp.devices') }}">Devices</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web_bp.notifications') }}">Notifications</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item d-flex align-items-center">
+                        <i class="bi bi-person-circle me-1"></i>
+                        <a id="username" href="{{ url_for('web_bp.profile') }}" class="me-2 text-decoration-none text-light">Account</a>
+                        <a href="#" id="logoutBtn" class="nav-link px-2 text-light">Log Out</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h1 class="h3">My Devices</h1>
+                <p class="text-muted">Manage your CCT devices and connected probes</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <button class="btn btn-outline-primary" id="associateDeviceBtn">
+                <i class="bi bi-link-45deg"></i> Add Device to Account
+                </button>
+                <button class="btn btn-outline-success" id="addProbeBtn">
+                  <i class="bi bi-plus-circle"></i> Add Probe to Device
+                </button>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Connected Devices</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Device ID</th>
+                                        <th>Model</th>
+                                        <th>Status</th>
+                                        <th>Probes</th>
+                                        <th>Last Connected</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="deviceTableBody">
+                                    <tr id="noDevicesRow">
+                                        <td colspan="7" class="text-center py-4">No devices found</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row" id="probeSection">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Connected Probes</h5>
+                        <span class="badge bg-success rounded-pill" id="probeCount">0</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Probe ID</th>
+                                        <th>Model</th>
+                                        <th>Device</th>
+                                        <th>Status</th>
+                                        <th>Last Reading</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="probeTableBody">
+                                    <tr id="noProbesRow">
+                                        <td colspan="7" class="text-center py-4">No probes found</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="modal fade" id="addDeviceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Device</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addDeviceForm">
+                        <div class="mb-3">
+                            <label for="deviceId" class="form-label">Device ID</label>
+                            <input type="text" class="form-control" id="deviceId" required>
+                            <div class="form-text">Enter the unique identifier of your CCT device</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="addDeviceSubmit">Add Device</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Device Modal -->
+    <div class="modal fade" id="editDeviceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Device</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editDeviceForm">
+                        <input type="hidden" id="editDeviceId">
+                        <div class="mb-3">
+                            <label for="editDeviceName" class="form-label">Device Name</label>
+                            <input type="text" class="form-control" id="editDeviceName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editDeviceStatus" class="form-label">Status</label>
+                            <select class="form-select" id="editDeviceStatus">
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="editDeviceSubmit">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Probe Modal -->
+    <div class="modal fade" id="editProbeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Probe</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProbeForm">
+                        <input type="hidden" id="editProbeId">
+                        <div class="mb-3">
+                            <label for="editProbeName" class="form-label">Probe Name</label>
+                            <input type="text" class="form-control" id="editProbeName" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="editProbeSubmit">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Probe History Modal -->
+    <div class="modal fade" id="probeHistoryModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Temperature History</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="probeHistoryLoading" class="text-center my-3 d-none">
+              <div class="spinner-border" role="status"></div>
+            </div>
+            <div id="probeHistoryError" class="alert alert-danger d-none"></div>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Temperature (°F)</th>
+                    <th>Average?</th>
+                  </tr>
+                </thead>
+                <tbody id="probeHistoryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Associate Device Modal -->
+    <div class="modal fade" id="associateDeviceModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="associateDeviceForm">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Newly Added Device to Account</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="assocDeviceId" class="form-label">Device ID</label>
+                <input type="text" class="form-control" id="assocDeviceId" required>
+              </div>
+              <div class="mb-3">
+                <label for="assocToken" class="form-label">Association Token</label>
+                <input type="text" class="form-control" id="assocToken" required>
+                <div class="form-text">Enter the association token provided with your device.</div>
+              </div>
+              <div id="associateDeviceResult" class="alert d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">Associate Device</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Probe Modal -->
+    <div class="modal fade" id="addProbeModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="addProbeForm">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Probe to Device</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="probeDeviceId" class="form-label">Device</label>
+                <select class="form-select" id="probeDeviceId" required>
+                  <option value="">Select device...</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="probeId" class="form-label">Probe ID</label>
+                <input type="text" class="form-control" id="probeId" required>
+              </div>
+              <div class="mb-3">
+                <label for="probeModel" class="form-label">Model</label>
+                <input type="text" class="form-control" id="probeModel" required>
+              </div>
+              <div class="mb-3">
+                <label for="probeName" class="form-label">Probe Name</label>
+                <input type="text" class="form-control" id="probeName" required>
+              </div>
+              <div id="addProbeResult" class="alert d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">Add Probe</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container text-center">
+            <span class="text-muted">© 2025 Connected Cooking Thermometer. All rights reserved.</span>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Check if user is logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = "{{ url_for('web_bp.login') }}";
+                return;
+            }
+            
+            // Load user data
+            loadUserData();
+            
+            // Load devices and probes
+            loadDevices();
+            
+            // Set up event listeners
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('addDeviceSubmit').addEventListener('click', addDevice);
+            document.getElementById('editDeviceSubmit').addEventListener('click', updateDevice);
+            document.getElementById('editProbeSubmit').addEventListener('click', updateProbe);
+
+            // Associate Device Button logic
+            const associateDeviceBtn = document.getElementById('associateDeviceBtn');
+            if (associateDeviceBtn) {
+                associateDeviceBtn.addEventListener('click', function() {
+                    document.getElementById('associateDeviceForm').reset();
+                    document.getElementById('associateDeviceResult').classList.add('d-none');
+                    const modal = new bootstrap.Modal(document.getElementById('associateDeviceModal'));
+                    modal.show();
+                });
+            }
+
+            // Add Probe Button logic
+            const addProbeBtn = document.getElementById('addProbeBtn');
+            if (addProbeBtn) {
+                addProbeBtn.addEventListener('click', function() {
+                    // Reset form and result
+                    document.getElementById('addProbeForm').reset();
+                    document.getElementById('addProbeResult').classList.add('d-none');
+                    // Populate device dropdown
+                    const devices = JSON.parse(localStorage.getItem('devicesCache') || '[]');
+                    const select = document.getElementById('probeDeviceId');
+                    select.innerHTML = '<option value="">Select device...</option>';
+                    devices.forEach(device => {
+                        const option = document.createElement('option');
+                        option.value = device.device_id;
+                        option.textContent = device.name || device.device_id;
+                        option.dataset.apiKey = device.api_key;
+                        select.appendChild(option);
+                    });
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('addProbeModal'));
+                    modal.show();
+                });
+            }
+
+            // Handle Associate Device Form Submission
+            const associateDeviceForm = document.getElementById('associateDeviceForm');
+            if (associateDeviceForm) {
+                associateDeviceForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const device_id = document.getElementById('assocDeviceId').value.trim();
+                    const association_token = document.getElementById('assocToken').value.trim();
+                    const token = localStorage.getItem('token');
+
+                    // Get user_id from /api/v1/users/me
+                    fetch('/api/v1/users/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    .then(response => response.ok ? response.json() : Promise.reject('Failed to get user info'))
+                    .then(user => {
+                        return fetch('/api/v1/devices/associate', {
+                            method: 'POST',
+                            headers: {
+                                'accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                device_id,
+                                user_id: user.id,
+                                association_token
+                            })
+                        });
+                    })
+                    .then(response => response.json().then(data => ({status: response.status, body: data})))
+                    .then(({status, body}) => {
+                        const resultDiv = document.getElementById('associateDeviceResult');
+                        if (status === 200 && body.success) {
+                            resultDiv.className = 'alert alert-success mt-2';
+                            resultDiv.textContent = body.message || 'Device successfully associated!';
+                            resultDiv.classList.remove('d-none');
+                            associateDeviceForm.querySelectorAll('input').forEach(input => input.disabled = true);
+                            setTimeout(() => {
+                                bootstrap.Modal.getInstance(document.getElementById('associateDeviceModal')).hide();
+                                associateDeviceForm.querySelectorAll('input').forEach(input => input.disabled = false);
+                                // Optionally reload devices list here
+                                // loadDevices();
+                            }, 1500);
+                        } else {
+                            resultDiv.className = 'alert alert-danger mt-2';
+                            resultDiv.textContent = body.message || 'Failed to associate device.';
+                            resultDiv.classList.remove('d-none');
+                        }
+                    })
+                    .catch(error => {
+                        const resultDiv = document.getElementById('associateDeviceResult');
+                        resultDiv.className = 'alert alert-danger mt-2';
+                        resultDiv.textContent = 'Error: ' + error;
+                        resultDiv.classList.remove('d-none');
+                    });
+                });
+            }
+
+            // Handle Add Probe Form Submission
+            const addProbeForm = document.getElementById('addProbeForm');
+            if (addProbeForm) {
+                addProbeForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const deviceSelect = document.getElementById('probeDeviceId');
+                    const device_id = deviceSelect.value;
+                    const api_key = deviceSelect.options[deviceSelect.selectedIndex].dataset.apiKey;
+                    const probe_id = document.getElementById('probeId').value.trim();
+                    const model = document.getElementById('probeModel').value.trim();
+                    const name = document.getElementById('probeName').value.trim();
+
+                    if (!device_id || !api_key || !probe_id || !model || !name) {
+                        return;
+                    }
+
+                    fetch(`/api/v1/devices/${device_id}/probes/register`, {
+                        method: 'POST',
+                        headers: {
+                            'accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'x-api-key': api_key
+                        },
+                        body: JSON.stringify({
+                            probe_id,
+                            model,
+                            name
+                        })
+                    })
+                    .then(response => response.json().then(data => ({status: response.status, body: data})))
+                    .then(({status, body}) => {
+                        const resultDiv = document.getElementById('addProbeResult');
+                        if (status === 200) {
+                            resultDiv.className = 'alert alert-success mt-2';
+                            resultDiv.textContent = body.message || 'Probe added successfully!';
+                            resultDiv.classList.remove('d-none');
+                            addProbeForm.querySelectorAll('input,select').forEach(input => input.disabled = true);
+                            setTimeout(() => {
+                                bootstrap.Modal.getInstance(document.getElementById('addProbeModal')).hide();
+                                addProbeForm.querySelectorAll('input,select').forEach(input => input.disabled = false);
+                                loadDevices();
+                            }, 1500);
+                        } else {
+                            resultDiv.className = 'alert alert-danger mt-2';
+                            resultDiv.textContent = body.message || 'Failed to add probe.';
+                            resultDiv.classList.remove('d-none');
+                        }
+                    })
+                    .catch(error => {
+                        const resultDiv = document.getElementById('addProbeResult');
+                        resultDiv.className = 'alert alert-danger mt-2';
+                        resultDiv.textContent = 'Error: ' + error;
+                        resultDiv.classList.remove('d-none');
+                    });
+                });
+            }
+        });
+        
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = "{{ url_for('web_bp.login') }}";
+        }
+        
+        function loadUserData() {
+            const token = localStorage.getItem('token');
+            
+            fetch('/api/v1/users/me', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load user data');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('username').textContent = data.username;
+            })
+            .catch(error => {
+                console.error('Error loading user data:', error);
+                logout();
+            });
+        }
+        
+        function loadDevices() {
+            const token = localStorage.getItem('token');
+            console.log("[loadDevices] Fetching devices with token:", token);
+
+            fetch('/api/v1/users/me/devices', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                return response.json(); // Only once!
+            })
+            .then(devices => {
+                localStorage.setItem('devicesCache', JSON.stringify(devices)); // Add this line
+                updateDeviceTable(devices);
+                loadProbes(devices);
+            })
+            .catch(error => {
+                console.error('[loadDevices] Error loading devices:', error);
+            });
+        }
+        
+        function loadProbes(devices) {
+            const token = localStorage.getItem('token');
+            let allProbes = [];
+            let probePromises = [];
+
+            devices.forEach(device => {
+                console.log(`[loadProbes] Device object:`, device);
+                console.log(`[loadProbes] Using api_key:`, device.api_key);
+
+                const promise = fetch(`/api/v1/devices/${device.device_id}/probes`, {
+                    headers: {
+                        'x-api-key': device.api_key // Make sure device.api_key is available!
+                    }
+                })
+                .then(response => {
+                    console.log(`[loadProbes] Response for device ${device.device_id}:`, response.status);
+                    if (!response.ok) {
+                        return [];
+                    }
+                    return response.json();
+                })
+                .then(probes => {
+                    console.log(`[loadProbes] Probes for device ${device.device_id}:`, probes);
+                    // Update probe count for this device
+                    const probeCountElement = document.getElementById(`probeCount-${device.device_id}`);
+                    if (probeCountElement) {
+                        probeCountElement.textContent = probes.length;
+                    }
+
+                    // Add device info to each probe
+                    probes.forEach(probe => {
+                        probe.deviceName = device.name || device.device_id;
+                        probe.deviceId = device.device_id;
+                    });
+
+                    allProbes = allProbes.concat(probes);
+                    return probes;
+                })
+                .catch(error => {
+                    console.error(`[loadProbes] Error loading probes for device ${device.device_id}:`, error);
+                    return [];
+                });
+
+                probePromises.push(promise);
+            });
+
+            Promise.all(probePromises)
+                .then(() => {
+                    console.log("[loadProbes] All probes loaded:", allProbes);
+                    updateProbeTable(allProbes);
+                    document.getElementById('probeCount').textContent = allProbes.length;
+                })
+                .catch(error => {
+                    console.error('[loadProbes] Error loading all probes:', error);
+                });
+        }
+        
+        function updateDeviceTable(devices) {
+            const tableBody = document.getElementById('deviceTableBody');
+            const noDevicesRow = document.getElementById('noDevicesRow');
+
+            if (devices.length === 0) {
+                if (noDevicesRow) noDevicesRow.style.display = '';
+                return;
+            }
+
+            if (noDevicesRow) noDevicesRow.style.display = 'none';
+            tableBody.innerHTML = '';
+
+            devices.forEach(device => {
+                const row = document.createElement('tr');
+                const isActive = device.is_active;
+                const lastConnected = device.last_connected ? new Date(device.last_connected).toLocaleString() : 'Never';
+
+                row.innerHTML = `
+                    <td>${device.name || 'Unnamed Device'}</td>
+                    <td>${device.device_id}</td>
+                    <td>${device.model}</td>
+                    <td>
+                        <span class="badge ${isActive ? 'bg-success' : 'bg-secondary'} rounded-pill">
+                            ${isActive ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td id="probeCount-${device.device_id}">Loading...</td>
+                    <td>${lastConnected}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" 
+                                onclick="openEditDeviceModal('${device.device_id}', '${device.name || ''}', ${isActive})">
+                                Edit
+                            </button>
+                            <button type="button" class="btn btn-outline-primary"
+                                onclick="viewDeviceTemperatureHistory('${device.device_id}')">
+                                History
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function updateProbeTable(probes) {
+            const tableBody = document.getElementById('probeTableBody');
+            const noProbesRow = document.getElementById('noProbesRow');
+            const probeSection = document.getElementById('probeSection');
+
+            console.log("[updateProbeTable] Updating probe table with probes:", probes);
+
+            if (probes.length === 0) {
+                if (noProbesRow) noProbesRow.style.display = '';
+                return;
+            }
+
+            if (noProbesRow) noProbesRow.style.display = 'none';
+            tableBody.innerHTML = '';
+
+            probes.forEach(probe => {
+                const row = document.createElement('tr');
+
+                const isConnected = probe.is_connected;
+                const lastConnected = probe.last_connected ? new Date(probe.last_connected).toLocaleString() : 'Never';
+
+                row.innerHTML = `
+                    <td>${probe.name || 'Unnamed Probe'}</td>
+                    <td>${probe.probe_id}</td>
+                    <td>${probe.model}</td>
+                    <td>${probe.deviceName}</td>
+                    <td>
+                        <span class="badge ${isConnected ? 'bg-success' : 'bg-secondary'} rounded-pill">
+                            ${isConnected ? 'Connected' : 'Disconnected'}
+                        </span>
+                    </td>
+                    <td>${lastConnected}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-primary" 
+                                onclick="viewTemperatureHistory('${probe.probe_id}', '${probe.deviceId}')">
+                                History
+                            </button>
+                        </div>
+                    </td>
+                `;
+
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function addDevice() {
+            const token = localStorage.getItem('token');
+            const deviceId = document.getElementById('deviceId').value;
+            
+            if (!deviceId) {
+                return;
+            }
+            
+            fetch(`/api/v1/users/me/devices/${deviceId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to add device');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('addDeviceModal')).hide();
+                
+                // Reload devices
+                loadDevices();
+                
+                // Reset form
+                document.getElementById('deviceId').value = '';
+            })
+            .catch(error => {
+                console.error('Error adding device:', error);
+                alert('Failed to add device. Please try again.');
+            });
+        }
+        
+        function openEditDeviceModal(deviceId, deviceName, isActive) {
+            document.getElementById('editDeviceId').value = deviceId;
+            document.getElementById('editDeviceName').value = deviceName;
+            document.getElementById('editDeviceStatus').value = isActive ? "true" : "false";
+            const modal = new bootstrap.Modal(document.getElementById('editDeviceModal'));
+            modal.show();
+        }
+        
+        function updateDevice() {
+            const token = localStorage.getItem('token');
+            const deviceId = document.getElementById('editDeviceId').value;
+            const name = document.getElementById('editDeviceName').value;
+            const isActive = document.getElementById('editDeviceStatus').value === "true";
+
+            // Disable the Save button to prevent double clicks
+            const saveBtn = document.getElementById('editDeviceSubmit');
+            saveBtn.disabled = true;
+
+            fetch(`/api/v1/users/me/devices/${deviceId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    is_active: isActive
+                })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to update device');
+                return response.json();
+            })
+            .then(() => {
+                // Hide the modal first
+                bootstrap.Modal.getInstance(document.getElementById('editDeviceModal')).hide();
+                // Then reload devices
+                loadDevices();
+            })
+            .catch(error => {
+                alert('Failed to update device: ' + error.message);
+            })
+            .finally(() => {
+                saveBtn.disabled = false;
+            });
+        }
+        
+        function openEditProbeModal(probeId, probeName) {
+            document.getElementById('editProbeId').value = probeId;
+            document.getElementById('editProbeName').value = probeName;
+            
+            const modal = new bootstrap.Modal(document.getElementById('editProbeModal'));
+            modal.show();
+        }
+        
+        function updateProbe() {
+            // In a real implementation, this would call an API to update the probe name
+            // For this demo, we'll just reload the devices and probes
+            bootstrap.Modal.getInstance(document.getElementById('editProbeModal')).hide();
+            loadDevices();
+        }
+        
+        function viewTemperatureHistory(probeId, deviceId) {
+            console.log('[viewTemperatureHistory] probeId:', probeId, 'deviceId:', deviceId);
+            // Find the device object to get the string device_id and api_key
+            const devices = JSON.parse(localStorage.getItem('devicesCache') || '[]');
+            const device = devices.find(d => d.device_id === deviceId);
+            if (!device) {
+                alert('Device not found');
+                return;
+            }
+            const deviceStringId = device.device_id;
+            const apiKey = device.api_key;
+            if (!apiKey) {
+                alert('No API key for this device');
+                return;
+            }
+
+            // Show modal and loading spinner
+            const modal = new bootstrap.Modal(document.getElementById('probeHistoryModal'));
+            document.getElementById('probeHistoryLoading').classList.remove('d-none');
+            document.getElementById('probeHistoryError').classList.add('d-none');
+            document.getElementById('probeHistoryTableBody').innerHTML = '';
+            modal.show();
+            
+            console.log('[viewTemperatureHistory] Fetching history for probe:', probeId, 'on device:', deviceStringId);
+            // Fetch probe history
+            let urlx = `/api/v1/temperature/${deviceStringId}/history`;
+            if (probeId) {
+                url = `/api/v1/temperature/${deviceStringId}/probes/${encodeURIComponent(probeId)}/history?limit=100`;
+            } else {
+                url = urlx + `?limit=100`;
+            }
+            console.log('[viewTemperatureHistory] Using url:', url);
+            fetch(url, { headers: { 'x-api-key': apiKey } })
+            .then(response => {
+                document.getElementById('probeHistoryLoading').classList.add('d-none');
+                if (!response.ok) throw new Error('Failed to load probe history');
+                return response.json();
+            })
+            .then(history => {
+                const tbody = document.getElementById('probeHistoryTableBody');
+                if (!history.length) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No history found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = history.map(entry => `
+                    <tr>
+                        <td>${new Date(entry.timestamp).toLocaleString()}</td>
+                        <td>${entry.temperature}</td>
+                        <td>${entry.is_average ? 'Yes' : 'No'}</td>
+                    </tr>
+                `).join('');
+            })
+            .catch(error => {
+                document.getElementById('probeHistoryError').textContent = error.message;
+                document.getElementById('probeHistoryError').classList.remove('d-none');
+            });
+        }
+        
+        function viewDeviceTemperatureHistory(deviceId) {
+            const devices = JSON.parse(localStorage.getItem('devicesCache') || '[]');
+            const device = devices.find(d => d.device_id === deviceId);
+            if (!device) {
+                alert('Device not found');
+                return;
+            }
+            const deviceStringId = device.device_id;
+            const apiKey = device.api_key;
+            if (!apiKey) {
+                alert('No API key for this device');
+                return;
+            }
+
+            // Show modal and loading spinner
+            const modal = new bootstrap.Modal(document.getElementById('probeHistoryModal'));
+            document.getElementById('probeHistoryLoading').classList.remove('d-none');
+            document.getElementById('probeHistoryError').classList.add('d-none');
+            document.getElementById('probeHistoryTableBody').innerHTML = '';
+            modal.show();
+
+            // Fetch only average readings for the device
+            const url = `/api/v1/temperature/${deviceStringId}/history?limit=100&is_average=true`;
+            console.log('[viewDeviceTemperatureHistory] Using url:', url);
+            fetch(url, { headers: { 'x-api-key': apiKey } })
+                .then(response => {
+                    document.getElementById('probeHistoryLoading').classList.add('d-none');
+                    if (!response.ok) throw new Error('Failed to load probe history');
+                    return response.json();
+                })
+                .then(history => {
+                    const tbody = document.getElementById('probeHistoryTableBody');
+                    if (!history.length) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No history found</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = history.map(entry => `
+                        <tr>
+                            <td>${new Date(entry.timestamp).toLocaleString()}</td>
+                            <td>${entry.temperature}</td>
+                            <td>${entry.is_average ? 'Yes' : 'No'}</td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => {
+                    document.getElementById('probeHistoryError').textContent = error.message;
+                    document.getElementById('probeHistoryError').classList.remove('d-none');
+                });
+        }
+        
+        function formatDateTime(utcString, tz) {
+            if (!utcString) return '';
+            const d = new Date(utcString);
+            let abbr = '';
+            try {
+                abbr = d.toLocaleTimeString('en-US', { timeZone: tz, timeZoneName: 'short' }).split(' ').pop();
+            } catch {
+                abbr = '';
+            }
+            return d.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: tz
+            }) + (abbr ? ' ' + abbr : '');
+        }
+    </script>
+</body>
+</html>

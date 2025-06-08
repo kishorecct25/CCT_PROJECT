@@ -1,0 +1,203 @@
+/* Custom styles for CCT Web Application */
+
+/* Main color scheme */
+:root {
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+  --info-color: #0dcaf0;
+  --light-color: #f8f9fa;
+  --dark-color: #212529;
+}
+
+/* Body and general styles */
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.footer {
+  margin-top: auto;
+}
+
+/* Card styles */
+.card {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Temperature display */
+.temperature-display {
+  font-size: 3rem;
+  font-weight: 300;
+  text-align: center;
+}
+
+.temperature-unit {
+  font-size: 1.5rem;
+  vertical-align: super;
+}
+
+/* Device status indicators */
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.status-active {
+  background-color: var(--success-color);
+}
+
+.status-inactive {
+  background-color: var(--secondary-color);
+}
+
+.status-warning {
+  background-color: var(--warning-color);
+}
+
+.status-error {
+  background-color: var(--danger-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .temperature-display {
+    font-size: 2.5rem;
+  }
+  
+  .temperature-unit {
+    font-size: 1.25rem;
+  }
+}
+
+/* Custom animations */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Custom form styles */
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Notification badge */
+.notification-badge {
+  position: relative;
+}
+
+.notification-badge[data-count]:after {
+  content: attr(data-count);
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  font-size: 0.75rem;
+  background: var(--danger-color);
+  color: white;
+  width: 18px;
+  height: 18px;
+  text-align: center;
+  line-height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 1px #333;
+}
+
+/* Dashboard widgets */
+.dashboard-widget {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.dashboard-widget-header {
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.dashboard-widget-body {
+  padding: 1.5rem;
+}
+
+/* Temperature chart styles */
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
+/* Device card styles */
+.device-card {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.device-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Probe indicator */
+.probe-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+/* Login and registration pages */
+.auth-container {
+  max-width: 400px;
+  margin: 2rem auto;
+}
+
+.auth-logo {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+/* Settings toggles */
+.settings-toggle {
+  width: 3rem;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

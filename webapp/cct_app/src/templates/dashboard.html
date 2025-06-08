@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - CCT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand">
+                <i class="bi bi-thermometer-half"></i> CCT
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('web_bp.dashboard') }}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web_bp.devices') }}">Devices</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('web_bp.notifications') }}">Notifications</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item d-flex align-items-center">
+                        <i class="bi bi-person-circle me-1"></i>
+                        <a id="username" href="{{ url_for('web_bp.profile') }}" class="me-2 text-decoration-none text-light">Account</a>
+                        <a href="#" id="logoutBtn" class="nav-link px-2 text-light">Log Out</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="h3">Dashboard</h1>
+                <p class="text-muted">Overview of your connected devices and temperature readings</p>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6 col-lg-3 mb-3">
+                <div class="card h-100 border-primary">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Devices</h5>
+                        <div class="display-4 my-3" id="deviceCount">0</div>
+                        <p class="card-text text-muted">Connected CCT devices</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 text-center">
+                        <a href="{{ url_for('web_bp.devices') }}" class="btn btn-sm btn-outline-primary">Manage Devices</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3 mb-3">
+                <div class="card h-100 border-success">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Probes</h5>
+                        <div class="display-4 my-3" id="probeCount">0</div>
+                        <p class="card-text text-muted">Connected temperature probes</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 text-center">
+                        <a href="{{ url_for('web_bp.devices') }}" class="btn btn-sm btn-outline-success">View Probes</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3 mb-3">
+                <div class="card h-100 border-warning">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Alerts</h5>
+                        <div class="display-4 my-3" id="alertCount">0</div>
+                        <p class="card-text text-muted">Active temperature alerts</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 text-center">
+                        <a href="{{ url_for('web_bp.notifications') }}" class="btn btn-sm btn-outline-warning">View Alerts</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3 mb-3">
+                <div class="card h-100 border-info">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">Readings</h5>
+                        <div class="display-4 my-3" id="readingCount">0</div>
+                        <p class="card-text text-muted">Temperature readings today</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 text-center">
+                        <button class="btn btn-sm btn-outline-info" id="refreshData">Refresh Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-lg-8 mb-3">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Temperature History</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Add this inside your card-body, above the canvas -->
+                        <div id="deviceChartSelectWrapper" class="mb-3 d-none">
+                            <label for="deviceChartSelect" class="form-label">Select Device</label>
+                            <select id="deviceChartSelect" class="form-select"></select>
+                        </div>
+                        <canvas id="temperatureChart" style="height:2400px; max-height:240px;"></canvas>
+                        <div class="text-center mt-3 d-none" id="noDataMessage">
+                            <p class="text-muted">No temperature data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Active Devices</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="activeDevicesList">
+                            <div class="list-group-item text-center py-5" id="noDevicesMessage">
+                                <p class="text-muted mb-0">No active devices</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="{{ url_for('web_bp.devices') }}" class="btn btn-sm btn-outline-primary w-100">View All Devices</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Notifications</h5>
+                        <span class="badge bg-primary rounded-pill" id="notificationCount">0</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="recentNotificationsList">
+                            <div class="list-group-item text-center py-5" id="noNotificationsMessage">
+                                <p class="text-muted mb-0">No recent notifications</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="{{ url_for('web_bp.notifications') }}" class="btn btn-sm btn-outline-primary w-100">View All Notifications</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" id="addDeviceBtn">
+                                <i class="bi bi-plus-circle"></i> Add New Device
+                            </button>
+                            <button class="btn btn-outline-success" id="setTargetTempBtn">
+                                <i class="bi bi-thermometer"></i> Set Target Temperature
+                            </button>
+                            <button class="btn btn-outline-warning" id="createAlertBtn">
+                                <i class="bi bi-bell"></i> Create New Trigger
+                            </button>
+                            <button class="btn btn-outline-primary" id="associateDeviceBtn">
+                              <i class="bi bi-link-45deg"></i> Add Device to Account
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="modal fade" id="addDeviceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Device</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addDeviceForm">
+                        <div class="mb-3">
+                            <label for="deviceId" class="form-label">Device ID</label>
+                            <input type="text" class="form-control" id="deviceId" required>
+                            <div class="form-text">Enter the unique identifier of your CCT device</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="addDeviceSubmit">Add Device</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Device Modal -->
+    <div class="modal fade" id="registerDeviceModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="registerDeviceForm">
+            <div class="modal-header">
+              <h5 class="modal-title">Register New Device</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="regDeviceId" class="form-label">Device ID</label>
+                <input type="text" class="form-control" id="regDeviceId" required>
+              </div>
+              <div class="mb-3">
+                <label for="regModel" class="form-label">Model</label>
+                <input type="text" class="form-control" id="regModel" required>
+              </div>
+              <div class="mb-3">
+                <label for="regFirmware" class="form-label">Firmware Version</label>
+                <input type="text" class="form-control" id="regFirmware" required>
+              </div>
+              <div class="mb-3">
+                <label for="regName" class="form-label">Device Name</label>
+                <input type="text" class="form-control" id="regName" required>
+              </div>
+              <div id="registerDeviceResult" class="alert d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">Register Device</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Associate Device Modal -->
+    <div class="modal fade" id="associateDeviceModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="associateDeviceForm">
+            <div class="modal-header">
+              <h5 class="modal-title">Add Newly Added Device to Account</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="assocDeviceId" class="form-label">Device ID</label>
+                <input type="text" class="form-control" id="assocDeviceId" required>
+              </div>
+              <div class="mb-3">
+                <label for="assocToken" class="form-label">Association Token</label>
+                <input type="text" class="form-control" id="assocToken" required>
+                <div class="form-text">Enter the association token provided with your device.</div>
+              </div>
+              <div id="associateDeviceResult" class="alert d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">Associate Device</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Set Target Temperature Modal -->
+    <div class="modal fade" id="setTargetTempModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="setTargetTempForm">
+            <div class="modal-header">
+              <h5 class="modal-title">Set Target Temperature</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="targetDeviceId" class="form-label">Device</label>
+                <select class="form-select" id="targetDeviceId" required>
+                  <option value="">Select device...</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="targetTemperature" class="form-label">Target Temperature (°F)</label>
+                <input type="number" class="form-control" id="targetTemperature" min="0" required>
+              </div>
+              <div id="setTargetTempResult" class="alert d-none mt-2"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">Set Target</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer mt-auto py-3 bg-light">
+        <div class="container text-center">
+            <span class="text-muted">© 2025 Connected Cooking Thermometer. All rights reserved.</span>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Check if user is logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = "{{ url_for('web_bp.login') }}";
+                return;
+            }
+            
+            // Load user data
+            loadUserData();
+            
+            console.log("Token used for notifications fetch:", localStorage.getItem('token'));
+
+            // Load dashboard data
+            loadDashboardData();
+            
+            // Initialize chart
+            initTemperatureChart();
+            
+            // Set up event listeners
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('refreshData').addEventListener('click', loadDashboardData);
+            
+            const addDeviceBtn = document.getElementById('addDeviceBtn');
+            if (addDeviceBtn) {
+                addDeviceBtn.addEventListener('click', function() {
+                    // Reset form
+                    document.getElementById('registerDeviceForm').reset();
+                    document.getElementById('registerDeviceResult').classList.add('d-none');
+                    // Re-enable all inputs
+                    document.querySelectorAll('#registerDeviceForm input').forEach(input => input.disabled = false);
+                    // Show modal footer (buttons)
+                    const modalFooter = document.querySelector('#registerDeviceModal .modal-footer');
+                    if (modalFooter) modalFooter.classList.remove('d-none');
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('registerDeviceModal'));
+                    modal.show();
+                });
+            }
+
+            const addDeviceSubmit = document.getElementById('addDeviceSubmit');
+            if (addDeviceSubmit) {
+                addDeviceSubmit.addEventListener('click', addDevice);
+            }
+
+            const registerDeviceBtn = document.getElementById('registerDeviceBtn');
+            if (registerDeviceBtn) {
+                registerDeviceBtn.addEventListener('click', function() {
+                    document.getElementById('registerDeviceForm').reset();
+                    document.getElementById('registerDeviceResult').classList.add('d-none');
+                    const modal = new bootstrap.Modal(document.getElementById('registerDeviceModal'));
+                    modal.show();
+                });
+            }
+
+            const registerDeviceForm = document.getElementById('registerDeviceForm');
+            if (registerDeviceForm) {
+                registerDeviceForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const device_id = document.getElementById('regDeviceId').value.trim();
+                    const model = document.getElementById('regModel').value.trim();
+                    const firmware_version = document.getElementById('regFirmware').value.trim();
+                    const name = document.getElementById('regName').value.trim();
+
+                    fetch('/api/v1/devices/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            device_id,
+                            model,
+                            firmware_version,
+                            name
+                        })
+                    })
+                    .then(response => response.json().then(data => ({status: response.status, body: data})))
+                    .then(({status, body}) => {
+                        const resultDiv = document.getElementById('registerDeviceResult');
+                        if (status === 200) {
+                            resultDiv.className = 'alert alert-success mt-2';
+                            resultDiv.textContent = 'Device registered successfully';
+                            resultDiv.classList.remove('d-none');
+                            // Hide form fields and modal buttons
+                            registerDeviceForm.querySelectorAll('input').forEach(input => input.disabled = true);
+                            // Hide the submit and cancel buttons
+                            const modalFooter = registerDeviceForm.closest('.modal-content').querySelector('.modal-footer');
+                            if (modalFooter) modalFooter.classList.add('d-none');
+                        } else {
+                            resultDiv.className = 'alert alert-danger mt-2';
+                            resultDiv.textContent = body.detail || 'Failed to register device.';
+                            resultDiv.classList.remove('d-none');
+                        }
+                    })
+                    .catch(error => {
+                        const resultDiv = document.getElementById('registerDeviceResult');
+                        resultDiv.className = 'alert alert-danger mt-2';
+                        resultDiv.textContent = 'Error: ' + error;
+                        resultDiv.classList.remove('d-none');
+                    });
+                });
+            }
+
+            // Associate Device Button logic
+            const associateDeviceBtn = document.getElementById('associateDeviceBtn');
+            if (associateDeviceBtn) {
+                associateDeviceBtn.addEventListener('click', function() {
+                    document.getElementById('associateDeviceForm').reset();
+                    document.getElementById('associateDeviceResult').classList.add('d-none');
+                    const modal = new bootstrap.Modal(document.getElementById('associateDeviceModal'));
+                    modal.show();
+                });
+            }
+
+            // Handle Associate Device Form Submission
+            const associateDeviceForm = document.getElementById('associateDeviceForm');
+            if (associateDeviceForm) {
+                associateDeviceForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const device_id = document.getElementById('assocDeviceId').value.trim();
+                    const association_token = document.getElementById('assocToken').value.trim();
+                    const token = localStorage.getItem('token');
+
+                    // Get user_id from /api/v1/users/me
+                    fetch('/api/v1/users/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    .then(response => response.ok ? response.json() : Promise.reject('Failed to get user info'))
+                    .then(user => {
+                        return fetch('/api/v1/devices/associate', {
+                            method: 'POST',
+                            headers: {
+                                'accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                device_id,
+                                user_id: user.id,
+                                association_token
+                            })
+                        });
+                    })
+                    .then(response => response.json().then(data => ({status: response.status, body: data})))
+                    .then(({status, body}) => {
+                        const resultDiv = document.getElementById('associateDeviceResult');
+                        if (status === 200 && body.success) {
+                            resultDiv.className = 'alert alert-success mt-2';
+                            resultDiv.textContent = body.message || 'Device successfully associated!';
+                            resultDiv.classList.remove('d-none');
+                            associateDeviceForm.querySelectorAll('input').forEach(input => input.disabled = true);
+                            setTimeout(() => {
+                                bootstrap.Modal.getInstance(document.getElementById('associateDeviceModal')).hide();
+                                associateDeviceForm.querySelectorAll('input').forEach(input => input.disabled = false);
+                                loadDashboardData();
+                            }, 1500);
+                        } else {
+                            resultDiv.className = 'alert alert-danger mt-2';
+                            resultDiv.textContent = body.message || 'Failed to associate device.';
+                            resultDiv.classList.remove('d-none');
+                        }
+                    })
+                    .catch(error => {
+                        const resultDiv = document.getElementById('associateDeviceResult');
+                        resultDiv.className = 'alert alert-danger mt-2';
+                        resultDiv.textContent = 'Error: ' + error;
+                        resultDiv.classList.remove('d-none');
+                    });
+                });
+            }
+
+            const setTargetTempBtn = document.getElementById('setTargetTempBtn');
+            if (setTargetTempBtn) {
+                setTargetTempBtn.addEventListener('click', function() {
+                    // Reset form and result
+                    document.getElementById('setTargetTempForm').reset();
+                    document.getElementById('setTargetTempResult').classList.add('d-none');
+                    // Populate device dropdown
+                    const token = localStorage.getItem('token');
+                    fetch('/api/v1/users/me/devices', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    .then(response => response.ok ? response.json() : [])
+                    .then(devices => {
+                        const select = document.getElementById('targetDeviceId');
+                        select.innerHTML = '<option value="">Select device...</option>';
+                        devices.forEach(device => {
+                            const option = document.createElement('option');
+                            option.value = device.device_id;
+                            option.textContent = device.name || device.device_id;
+                            option.dataset.apiKey = device.api_key;
+                            select.appendChild(option);
+                        });
+                    });
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('setTargetTempModal'));
+                    modal.show();
+                });
+            }
+
+            // Handle Set Target Temperature Form Submission
+            const setTargetTempForm = document.getElementById('setTargetTempForm');
+            if (setTargetTempForm) {
+                setTargetTempForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const deviceSelect = document.getElementById('targetDeviceId');
+                    const device_id = deviceSelect.value;
+                    const api_key = deviceSelect.options[deviceSelect.selectedIndex].dataset.apiKey;
+                    const temperature = parseFloat(document.getElementById('targetTemperature').value);
+                    const token = localStorage.getItem('token');
+
+                    if (!device_id || !api_key || isNaN(temperature)) {
+                        return;
+                    }
+
+                    // Get user_id
+                    fetch('/api/v1/users/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    .then(response => response.ok ? response.json() : Promise.reject('Failed to get user info'))
+                    .then(user => {
+                        return fetch('/api/v1/temperature/target', {
+                            method: 'POST',
+                            headers: {
+                                'accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'x-api-key': api_key
+                            },
+                            body: JSON.stringify({
+                                device_id,
+                                temperature,
+                                set_by_user_id: user.id
+                            })
+                        });
+                    })
+                    .then(response => response.json().then(data => ({status: response.status, body: data})))
+                    .then(({status, body}) => {
+                        const resultDiv = document.getElementById('setTargetTempResult');
+                        if (status === 200) {
+                            resultDiv.className = 'alert alert-success mt-2';
+                            resultDiv.textContent = body.message || 'Target temperature set!';
+                            resultDiv.classList.remove('d-none');
+                            setTargetTempForm.querySelectorAll('input,select').forEach(input => input.disabled = true);
+                            setTimeout(() => {
+                                bootstrap.Modal.getInstance(document.getElementById('setTargetTempModal')).hide();
+                                setTargetTempForm.querySelectorAll('input,select').forEach(input => input.disabled = false);
+                            }, 1500);
+                        } else {
+                            resultDiv.className = 'alert alert-danger mt-2';
+                            resultDiv.textContent = body.message || 'Failed to set target temperature.';
+                            resultDiv.classList.remove('d-none');
+                        }
+                    })
+                    .catch(error => {
+                        const resultDiv = document.getElementById('setTargetTempResult');
+                        resultDiv.className = 'alert alert-danger mt-2';
+                        resultDiv.textContent = 'Error: ' + error;
+                        resultDiv.classList.remove('d-none');
+                    });
+                });
+            }
+
+            const createAlertBtn = document.getElementById('createAlertBtn');
+            if (createAlertBtn) {
+                createAlertBtn.addEventListener('click', function() {
+                    // Redirect to notifications page, scroll to or highlight "Custom Triggers" section
+                    window.location.href = "{{ url_for('web_bp.notifications') }}#custom-triggers";
+                });
+            }
+        });
+        
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = "{{ url_for('web_bp.login') }}";
+        }
+        
+        function loadUserData() {
+            const token = localStorage.getItem('token');
+            
+            fetch('/api/v1/users/me', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load user data');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('username').textContent = data.username;
+            })
+            .catch(error => {
+                console.error('Error loading user data:', error);
+                logout();
+            });
+        }
+        
+        function loadDashboardData() {
+            const token = localStorage.getItem('token');
+
+            // Load devices
+            fetch('/api/v1/users/me/devices', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load devices');
+                }
+                return response.json();
+            })
+            .then(devices => {
+                document.getElementById('deviceCount').textContent = devices.length;
+                updateActiveDevicesList(devices);
+
+                // Count probes and readings
+                let probeCount = 0;
+                let readingCount = 0;
+                const devicePromises = devices.map(device => {
+                    // Fetch probes
+                    const probesPromise = fetch(`/api/v1/devices/${device.device_id}/probes`, {
+                        headers: {
+                            'X-API-Key': device.api_key
+                        }
+                    })
+                    .then(response => response.ok ? response.json() : [])
+                    .then(probes => {
+                        probeCount += probes.length;
+                    });
+
+                    // Fetch readings
+                    const readingsPromise = fetch(`/api/v1/temperature/${device.device_id}/history?limit=1000&is_average=false`, {
+                        headers: {
+                            'X-API-Key': device.api_key
+                        }
+                    })
+                    .then(response => response.ok ? response.json() : [])
+                    .then(readings => {
+                        readingCount += readings.length;
+                    });
+
+                    return Promise.all([probesPromise, readingsPromise]);
+                });
+
+                return Promise.all(devicePromises).then(() => {
+                    document.getElementById('probeCount').textContent = probeCount;
+                    document.getElementById('readingCount').textContent = readingCount;
+                });
+            })
+            .catch(error => {
+                console.error('Error loading devices:', error);
+            });
+            
+            console.log("Token used for notifications fetch:", localStorage.getItem('token'));
+
+            // Load notifications
+            console.log("Token used for notifications fetch:", localStorage.getItem('token'));
+            fetch('/api/v1/notifications?limit=5', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load notifications');
+                }
+                return response.json();
+            })
+            .then(notifications => {
+                const unreadCount = notifications.filter(n => !n.is_read).length;
+                document.getElementById('notificationCount').textContent = unreadCount;
+
+                // FIX: Count unread temperature_alert notifications for alertCount
+                const unreadAlerts = notifications.filter(n =>
+                    !n.is_read && n.notification_type === 'temperature_alert'
+                ).length;
+                document.getElementById('alertCount').textContent = unreadAlerts;
+
+                updateRecentNotificationsList(notifications);
+            })
+            .catch(error => {
+                console.error('Error loading notifications:', error);
+            });
+            
+            
+
+        }
+        
+        function updateActiveDevicesList(devices) {
+            const listElement = document.getElementById('activeDevicesList');
+            const noDevicesMessage = document.getElementById('noDevicesMessage');
+            
+            if (!listElement) return; // Defensive: list element must exist
+
+            if (devices.length === 0) {
+                if (noDevicesMessage) noDevicesMessage.classList.remove('d-none');
+                return;
+            }
+            
+            if (noDevicesMessage) noDevicesMessage.classList.add('d-none');
+            listElement.innerHTML = '';
+            
+            devices.forEach(device => {
+                const isActive = device.is_active;
+                const lastConnected = device.last_connected ? new Date(device.last_connected).toLocaleString() : 'Never';
+                
+                const deviceElement = document.createElement('a');
+                deviceElement.className = 'list-group-item list-group-item-action';
+                deviceElement.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between align-items-center">
+                        <h6 class="mb-1">${device.name || device.device_id}</h6>
+                        <span class="badge ${isActive ? 'bg-success' : 'bg-secondary'} rounded-pill">
+                            ${isActive ? 'Active' : 'Inactive'}
+                        </span>
+                    </div>
+                    <p class="mb-1 text-muted small">Model: ${device.model}</p>
+                    <small class="text-muted">Last connected: ${lastConnected}</small>
+                `;
+                
+                listElement.appendChild(deviceElement);
+            });
+        }
+        
+        function updateRecentNotificationsList(notifications) {
+            const listElement = document.getElementById('recentNotificationsList');
+            const noNotificationsMessage = document.getElementById('noNotificationsMessage');
+            
+            if (!listElement) return; // Defensive: list element must exist
+
+            if (notifications.length === 0) {
+                if (noNotificationsMessage) noNotificationsMessage.classList.remove('d-none');
+                return;
+            }
+            
+            if (noNotificationsMessage) noNotificationsMessage.classList.add('d-none');
+            listElement.innerHTML = '';
+            
+            notifications.forEach(notification => {
+                const notificationElement = document.createElement('div');
+                notificationElement.className = 'list-group-item';
+                
+                let typeClass = 'text-info';
+                if (notification.notification_type === 'temperature_alert') {
+                    typeClass = 'text-warning';
+                } else if (notification.notification_type === 'connection_lost') {
+                    typeClass = 'text-danger';
+                }
+                
+                const createdAt = new Date(notification.created_at).toLocaleString();
+                
+                notificationElement.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1 ${typeClass}">${notification.title}</h6>
+                        <small class="text-muted">${createdAt}</small>
+                    </div>
+                    <p class="mb-1">${notification.message}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Via ${notification.channel}</small>
+                        ${notification.is_read ? '' : '<span class="badge bg-primary rounded-pill">New</span>'}
+                    </div>
+                `;
+                
+                listElement.appendChild(notificationElement);
+            });
+        }
+        
+        function initTemperatureChart() {
+            console.log("initTemperatureChart called");
+            const token = localStorage.getItem('token');
+            const deviceSelectWrapper = document.getElementById('deviceChartSelectWrapper');
+            const deviceSelect = document.getElementById('deviceChartSelect');
+            const noDataMessage = document.getElementById('noDataMessage');
+            const canvas = document.getElementById('temperatureChart');
+            if (!canvas) {
+                console.error('temperatureChart canvas not found!');
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+
+            fetch('/api/v1/users/me/devices', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => response.ok ? response.json() : [])
+            .then(devices => {
+                if (!devices.length) {
+                    noDataMessage.classList.remove('d-none');
+                    deviceSelectWrapper.classList.add('d-none');
+                    return;
+                }
+
+                // Helper to fetch and draw for a device
+                function loadAndDraw(device) {
+                    fetch(`/api/v1/temperature/${device.device_id}/history?limit=100&is_average=false`, {
+                        headers: { 'X-API-Key': device.api_key }
+                    })
+                    .then(response => response.ok ? response.json() : [])
+                    .then(readings => {
+                        if (!readings.length) {
+                            noDataMessage.classList.remove('d-none');
+                            if (window.temperatureChart && typeof window.temperatureChart.destroy === 'function') {
+                                window.temperatureChart.destroy();
+                            }
+                            return;
+                        }
+                        noDataMessage.classList.add('d-none');
+                        readings.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                        const labels = readings.map(r => new Date(r.timestamp).toLocaleTimeString());
+                        const data = readings.map(r => r.temperature);
+
+                        if (window.temperatureChart && typeof window.temperatureChart.destroy === 'function') {
+                            window.temperatureChart.destroy();
+                        }
+                        window.temperatureChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: `Temperature (°F) - ${device.name || device.device_id}`,
+                                    data: data,
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                    tension: 0.4,
+                                    fill: true
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        beginAtZero: false,
+                                        title: {
+                                            display: true,
+                                            text: 'Temperature (°F)'
+                                        }
+                                    },
+                                    x: {
+                                        title: {
+                                            display: true,
+                                            text: 'Time'
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }
+
+                // Find the first device with data
+                function tryDevice(index) {
+                    if (index >= devices.length) {
+                        noDataMessage.classList.remove('d-none');
+                        deviceSelectWrapper.classList.toggle('d-none', devices.length < 2);
+                        return;
+                    }
+                    const device = devices[index];
+                    fetch(`/api/v1/temperature/${device.device_id}/history?limit=100&is_average=false`, {
+                        headers: { 'X-API-Key': device.api_key }
+                    })
+                    .then(response => response.ok ? response.json() : [])
+                    .then(readings => {
+                        if (!readings.length) {
+                            tryDevice(index + 1);
+                            return;
+                        }
+                        // Populate dropdown if more than one device
+                        if (devices.length > 1) {
+                            deviceSelectWrapper.classList.remove('d-none');
+                            deviceSelect.innerHTML = '';
+                            devices.forEach(d => {
+                                const option = document.createElement('option');
+                                option.value = d.device_id;
+                                option.textContent = d.name || d.device_id;
+                                if (d.device_id === device.device_id) option.selected = true;
+                                deviceSelect.appendChild(option);
+                            });
+                            // On change, load selected device's data
+                            deviceSelect.onchange = function() {
+                                const selected = devices.find(d => d.device_id === this.value);
+                                if (selected) loadAndDraw(selected);
+                            };
+                        } else {
+                            deviceSelectWrapper.classList.add('d-none');
+                        }
+                        loadAndDraw(device);
+                    });
+                }
+
+                tryDevice(0);
+            })
+            .catch((err) => {
+                console.error("Error in initTemperatureChart:", err);
+                document.getElementById('noDataMessage').classList.remove('d-none');
+            });
+        }
+        
+        function addDevice() {
+            const token = localStorage.getItem('token');
+            const deviceId = document.getElementById('deviceId').value;
+            
+            if (!deviceId) {
+                return;
+            }
+            
+            fetch(`/api/v1/users/me/devices/${deviceId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to add device');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('addDeviceModal')).hide();
+                
+                // Reload dashboard data
+                loadDashboardData();
+                
+                // Reset form
+                document.getElementById('deviceId').value = '';
+            })
+            .catch(error => {
+                console.error('Error adding device:', error);
+                alert('Failed to add device. Please try again.');
+            });
+        }
+    </script>
+</body>
+</html>
