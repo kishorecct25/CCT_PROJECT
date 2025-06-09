@@ -15,8 +15,11 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.API_VERSION,
-    description="Backend API for Connected Cooking Thermometer (CCT) devices"
+    description="Backend API for Connected Cooking Thermometer (CCT) devices",
+    docs_url=f"/api/{settings.API_VERSION}/docs",
+    openapi_url=f"/api/{settings.API_VERSION}/openapi.json"
 )
+
 
 # Add CORS middleware
 app.add_middleware(

@@ -2,21 +2,22 @@ import multiprocessing
 import subprocess
 
 def run_backend():
-    subprocess.run([
-        "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"
-    ])
+    subprocess.run(["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001"])
 
 def run_webapp():
-    subprocess.run([
-        "python", "webapp/run_webapp.py"
-    ])
+    subprocess.run(["python", "webapp/run_webapp.py"])
+
+def run_nginx():
+    subprocess.run(["nginx", "-g", "daemon off;"])
 
 if __name__ == "__main__":
-    backend_process = multiprocessing.Process(target=run_backend)
-    webapp_process = multiprocessing.Process(target=run_webapp)
+    processes = [
+        multiprocessing.Process(target=run_backend),
+        multiprocessing.Process(target=run_webapp),
+        multiprocessing.Process(target=run_nginx)
+    ]
 
-    backend_process.start()
-    webapp_process.start()
-
-    backend_process.join()
-    webapp_process.join()
+    for p in processes:
+        p.start()
+    for p in processes:
+        p.join()
