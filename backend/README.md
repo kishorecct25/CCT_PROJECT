@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the backend system for the Connected Cooking Thermometer (CCT) application. It provides a comprehensive API for managing CCT devices, probes, temperature data, user accounts, and notifications.
+This is the backend system for the Cloud Connected Thermometer (CCT) application. It provides a comprehensive API for managing CCT devices, probes, temperature data, user accounts, and notifications.
 
 ## Features
 

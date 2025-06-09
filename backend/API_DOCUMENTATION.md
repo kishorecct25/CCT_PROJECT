@@ -2,7 +2,7 @@
 Documentation for the CCT Backend API.
 
 This file provides an overview of the CCT Backend API endpoints, authentication mechanisms,
-and data flow for the Connected Cooking Thermometer (CCT) application.
+and data flow for the Cloud Connected Thermometer (CCT) application.
 """
 
 # CCT Backend API Documentation
