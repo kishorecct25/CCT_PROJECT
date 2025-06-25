@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     
     # Database settings
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres.wyaakivfwtnygtyhjxka:it2MtDGDQgJVn1jh@aws-0-us-east-2.pooler.supabase.com:6543/postgres")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres.wyaakivfwtnygtyhjxka:uubrgd9sikPwwV9t@aws-0-us-east-2.pooler.supabase.com:6543/postgres")
     
     # JWT Authentication
     SECRET_KEY: str = os.getenv("SECRET_KEY", "rWN2mG8GqRQV762w")
