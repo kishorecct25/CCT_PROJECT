@@ -250,3 +250,17 @@ def update_user_device(
     db.commit()
     db.refresh(device)
     return device
+
+@router.delete("/{user_id}/deregister", response_model=dict)
+def deregister_user(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Deregister (delete) a user and all associated data.
+    """
+    try:
+        user_service.deregister_user(db, user_id)
+        return {"success": True, "message": "User and associated data deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

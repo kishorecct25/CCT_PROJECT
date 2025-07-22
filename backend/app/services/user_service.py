@@ -444,3 +444,48 @@ def delete_custom_trigger(db, user_id, trigger_id):
     db.delete(trigger)
     db.commit()
     return trigger
+
+def deregister_user(db: Session, user_id: int):
+    """
+    Delete a user and all associated data.
+    """
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+
+    # Delete custom triggers
+    db_settings = get_notification_settings(db, user_id)
+    if db_settings:
+        for trigger in db_settings.custom_triggers:
+            db.delete(trigger)
+        db.delete(db_settings)
+        db.commit()
+
+    # Remove device associations
+    associations = db.query(models.user_device_association).filter(
+        models.user_device_association.c.user_id == user_id
+    ).all()
+    for assoc in associations:
+        db.execute(
+            models.user_device_association.delete().where(
+                (models.user_device_association.c.user_id == user_id)
+            )
+        )
+    db.commit()
+
+    # Optionally: Delete devices owned by user (if your model supports ownership)
+    # for device in user.devices:
+    #     db.delete(device)
+    # db.commit()
+
+    # Delete notifications
+    notifications = db.query(models.Notification).filter(
+        models.Notification.user_id == user_id
+    ).all()
+    for notification in notifications:
+        db.delete(notification)
+    db.commit()
+
+    # Finally, delete the user
+    db.delete(user)
+    db.commit()
