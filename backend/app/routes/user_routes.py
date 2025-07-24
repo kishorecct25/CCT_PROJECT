@@ -119,18 +119,11 @@ def get_user_devices(
             models.APIKey.is_active == True
         ).first()
         api_key = api_key_obj.key if api_key_obj else None
-        device_list.append({
-            "id": device.id,
-            "device_id": device.device_id,
-            "name": device.name,
-            "model": device.model,
-            "firmware_version": device.firmware_version,
-            "is_active": device.is_active,
-            "last_connected": device.last_connected,
-            "created_at": device.created_at,
-            "updated_at": device.updated_at,
-            "api_key": api_key,
-        })
+        # Get all column attributes dynamically
+        device_data = {col.name: getattr(device, col.name) for col in device.__table__.columns}
+        device_data["api_key"] = api_key
+
+        device_list.append(device_data)
     return device_list
 
 @router.get("/me/notification-settings", response_model=schemas.NotificationSetting)
