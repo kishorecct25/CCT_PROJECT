@@ -82,22 +82,22 @@ def update_user_me(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/me/devices/{device_id}", response_model=schemas.CCTDevice)
-def associate_device(
-    device_id: str,
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Associate a device with the current user.
+# @router.put("/me/devices/{device_id}", response_model=schemas.CCTDevice)
+# def associate_device(
+#     device_id: str,
+#     current_user: schemas.User = Depends(get_current_active_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Associate a device with the current user.
     
-    This endpoint allows a user to associate a CCT device with their account.
-    The user must be authenticated.
-    """
-    try:
-        return user_service.associate_device_with_user(db, current_user.id, device_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+#     This endpoint allows a user to associate a CCT device with their account.
+#     The user must be authenticated.
+#     """
+#     try:
+#         return user_service.associate_device_with_user(db, current_user.id, device_id)
+#     except ValueError as e:
+#         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/me/devices")
 def get_user_devices(
@@ -105,24 +105,46 @@ def get_user_devices(
     db: Session = Depends(get_db)
 ):
     """
-    Get all devices associated with the current user.
-    
-    This endpoint allows a user to retrieve all CCT devices associated with their account.
-    The user must be authenticated.
+    Get all devices associated with the current user, including association fields.
     """
-    devices = user_service.get_user_devices(db, current_user.id)
+    # Join devices with association table to get extra fields
+    results = (
+        db.query(
+            models.CCTDevice,
+            models.user_device_association.c.name,
+            models.user_device_association.c.type_of_device,
+            models.user_device_association.c.device_room,
+            models.user_device_association.c.min_temperature,
+            models.user_device_association.c.max_temperature,
+            models.user_device_association.c.on_off_indicator,
+        )
+        .join(
+            models.user_device_association,
+            models.CCTDevice.id == models.user_device_association.c.device_id,
+        )
+        .filter(models.user_device_association.c.user_id == current_user.id)
+        .all()
+    )
+
     device_list = []
-    for device in devices:
-        # Query the API key for this device (using device.id)
+    for device, name, type_of_device, device_room, min_temp, max_temp, on_off in results:
         api_key_obj = db.query(models.APIKey).filter(
             models.APIKey.device_id == device.id,
             models.APIKey.is_active == True
         ).first()
         api_key = api_key_obj.key if api_key_obj else None
-        # Get all column attributes dynamically
+
         device_data = {col.name: getattr(device, col.name) for col in device.__table__.columns}
         device_data["api_key"] = api_key
-
+        # Add association fields
+        device_data.update({
+            "name_in_association": name,
+            "type_of_device": type_of_device,
+            "device_room": device_room,
+            "min_temperature": min_temp,
+            "max_temperature": max_temp,
+            "on_off_indicator": on_off,
+        })
         device_list.append(device_data)
     return device_list
 
@@ -215,34 +237,56 @@ def delete_custom_trigger(
     """
     return user_service.delete_custom_trigger(db, current_user.id, trigger_id)
 
-@router.patch("/me/devices/{device_id}", response_model=schemas.CCTDevice)
-def update_user_device(
+# @router.patch("/me/devices/{device_id}", response_model=schemas.CCTDevice)
+# def update_user_device(
+#     device_id: str,
+#     update: dict = Body(...),
+#     current_user: schemas.User = Depends(get_current_active_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Update a device's name and status for the current user.
+#     """
+#     device = (
+#         db.query(models.CCTDevice)
+#         .join(models.user_device_association, models.CCTDevice.id == models.user_device_association.c.device_id)
+#         .filter(models.CCTDevice.device_id == device_id)
+#         .filter(models.user_device_association.c.user_id == current_user.id)
+#         .first()
+#     )
+#     if not device:
+#         raise HTTPException(status_code=404, detail="Device not found or not owned by user")
+
+#     if "name" in update:
+#         device.name = update["name"]
+#     if "is_active" in update:
+#         device.is_active = update["is_active"]
+
+#     db.commit()
+#     db.refresh(device)
+#     return device
+
+@router.post("/me/devices/{device_id}")
+def associate_and_update_device(
     device_id: str,
-    update: dict = Body(...),
+    device_update: schemas.DeviceAssociationUpdateRequest,
     current_user: schemas.User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
-    Update a device's name and status for the current user.
+    Associate a device with the current user and update its details.
+    
+    This endpoint allows a user to associate a CCT device with their account
+    and update the device details like name and status.
+    The user must be authenticated.
     """
-    device = (
-        db.query(models.CCTDevice)
-        .join(models.user_device_association, models.CCTDevice.id == models.user_device_association.c.device_id)
-        .filter(models.CCTDevice.device_id == device_id)
-        .filter(models.user_device_association.c.user_id == current_user.id)
-        .first()
-    )
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found or not owned by user")
-
-    if "name" in update:
-        device.name = update["name"]
-    if "is_active" in update:
-        device.is_active = update["is_active"]
-
-    db.commit()
-    db.refresh(device)
-    return device
+    try:
+        user_service.associate_device_with_user(
+            db, current_user.id, device_id, update_data=device_update
+        )
+        return {"success": True, "message": "Device associated and details updated"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/{user_id}/deregister", response_model=dict)
 def deregister_user(

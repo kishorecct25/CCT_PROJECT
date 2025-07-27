@@ -298,6 +298,14 @@ class DeviceAssociationResponse(BaseModel):
     success: bool
     message: str
 
+class DeviceAssociationUpdateRequest(BaseModel):
+    name: str
+    type_of_device: str
+    device_room: str
+    min_temperature: float
+    max_temperature: float
+    on_off_indicator: bool
+
 # Test account schemas
 class TestAccountBase(BaseModel):
     name: str

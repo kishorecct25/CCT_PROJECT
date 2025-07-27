@@ -174,46 +174,55 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate) -> m
     
     return db_user
 
-def associate_device_with_user(db: Session, user_id: int, device_id: str) -> models.CCTDevice:
-    """
-    Associate a device with a user.
-    
-    Args:
-        db: Database session
-        user_id: User ID
-        device_id: Device ID
-        
-    Returns:
-        Associated device object
-    """
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise ValueError(f"User with ID {user_id} not found")
-    
+def associate_device_with_user(
+    db: Session, user_id: int, device_id: str, update_data=None
+):
     device = db.query(models.CCTDevice).filter(models.CCTDevice.device_id == device_id).first()
     if not device:
-        raise ValueError(f"Device with ID {device_id} not found")
-    
-    # Check if association already exists
-    association = (
-        db.query(models.user_device_association)
-        .filter(
-            models.user_device_association.c.user_id == user_id,
-            models.user_device_association.c.device_id == device.id
-        )
-        .first()
-    )
-    
+        raise ValueError("Device not found")
+    print(device.id)
+    print(user_id)
+    association = db.query(models.user_device_association).filter_by(
+        user_id=user_id, device_id=device.id
+    ).first()
+
+    print(association.device_room)
     if not association:
-        # Create association
-        stmt = models.user_device_association.insert().values(
-            user_id=user_id,
-            device_id=device.id
-        )
-        db.execute(stmt)
+        insert_data = {
+            "user_id": user_id,
+            "device_id": device.id,
+        }
+        if update_data:
+            insert_data.update(
+                {
+                    "name": update_data.name,
+                    "type_of_device": update_data.type_of_device,
+                    "device_room": update_data.device_room,
+                    "min_temperature": update_data.min_temperature,
+                    "max_temperature": update_data.max_temperature,
+                    "on_off_indicator": update_data.on_off_indicator,
+                }
+            )
+        db.execute(models.user_device_association.insert().values(**insert_data))
         db.commit()
-    
-    return device
+    else:
+        if update_data:
+            db.execute(
+                models.user_device_association.update()
+                .where(
+                    (models.user_device_association.c.user_id == user_id)
+                    & (models.user_device_association.c.device_id == device.id)
+                )
+                .values(
+                    name=update_data.name,
+                    type_of_device=update_data.type_of_device,
+                    device_room=update_data.device_room,
+                    min_temperature=update_data.min_temperature,
+                    max_temperature=update_data.max_temperature,
+                    on_off_indicator=update_data.on_off_indicator,
+                )
+            )
+            db.commit()
 
 def get_user_devices(db: Session, user_id: int) -> List[models.CCTDevice]:
     """
