@@ -15,7 +15,7 @@ def create_app():
     
     # Configuration
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    app.config['BACKEND_API_URL'] = os.getenv('BACKEND_API_URL', 'http://localhost:8000/api/v2')
+    app.config['BACKEND_API_URL'] = os.getenv('BACKEND_API_URL', 'http://localhost:8000/api/v1')
     
     # Register blueprints
     from src.routes.web_routes import web_bp
