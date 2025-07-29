@@ -15,7 +15,13 @@ user_device_association = Table(
     'user_device_association',
     Base.metadata,
     Column('user_id', Integer, ForeignKey('users.id')),
-    Column('device_id', Integer, ForeignKey('cct_devices.id'))
+    Column('device_id', Integer, ForeignKey('cct_devices.id')),
+    Column('name', String, nullable=True),
+    Column('type_of_device', String, nullable=True),
+    Column('device_room', String, nullable=True),
+    Column('min_temperature', Float, nullable=True),
+    Column('max_temperature', Float, nullable=True),
+    Column('on_off_indicator', Boolean, nullable=True)
 )
 
 class User(Base):
