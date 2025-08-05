@@ -1,15 +1,17 @@
 """
 API routes for user management in the CCT Backend application.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel, EmailStr
 
 from app.config.database import get_db
 from app.models import schemas, models
 from app.services import user_service
 from app.utils.auth import get_current_active_user
+from app.utils.otp_utils import generate_otp, send_otp_email, verify_otp
 
 router = APIRouter(
     prefix="/users",
@@ -17,21 +19,57 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+# ---- New Pydantic model for OTP verification ----
+class OTPVerifySchema(BaseModel):
+    email: EmailStr
+    otp: str
+
 @router.post("/register", response_model=schemas.User)
-def register_user(
+async def register_user(
     user: schemas.UserCreate,
     db: Session = Depends(get_db)
 ):
     """
     Register a new user in the system.
-    
+
     This endpoint allows registering a new CCT owner account.
     It returns the created user object without the password.
     """
     try:
-        return user_service.create_user(db, user)
+        db_user = user_service.create_user(db, user)
+
+        # Generate OTP and send via email
+        otp = generate_otp(user.email)
+        print("Generated OTP:", otp)  # DEBUG
+        try:
+            await send_otp_email(user.email, otp,username=user.username)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"User registered, but failed to send OTP email: {str(e)}"
+            )
+
+        return db_user
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/verify-otp")
+async def verify_user_otp(
+    payload: OTPVerifySchema,
+    db: Session = Depends(get_db)
+):
+    """
+    Verify OTP sent to user's email during registration.
+    Body format: {"email": "user@example.com", "otp": "123456"}
+    """
+    print(f"Received OTP verification for {payload.email} with OTP: {payload.otp}")
+    
+    if verify_otp(payload.email, payload.otp):
+        print("OTP verified successfully")
+        return {"message": "OTP verified successfully"}
+    else:
+        print("Invalid OTP")
+        raise HTTPException(status_code=401, detail="Invalid OTP")
 
 @router.post("/token", response_model=schemas.Token)
 def login_for_access_token(
@@ -40,7 +78,7 @@ def login_for_access_token(
 ):
     """
     Get an access token for authentication.
-    
+
     This endpoint allows a user to authenticate and receive an access token
     that can be used for subsequent API calls.
     """
@@ -59,7 +97,7 @@ def read_users_me(
 ):
     """
     Get the current user's information.
-    
+
     This endpoint allows a user to retrieve their own information.
     The user must be authenticated.
     """
@@ -73,231 +111,11 @@ def update_user_me(
 ):
     """
     Update the current user's information.
-    
+
     This endpoint allows a user to update their own information.
     The user must be authenticated.
     """
     try:
         return user_service.update_user(db, current_user.id, user_update)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-# @router.put("/me/devices/{device_id}", response_model=schemas.CCTDevice)
-# def associate_device(
-#     device_id: str,
-#     current_user: schemas.User = Depends(get_current_active_user),
-#     db: Session = Depends(get_db)
-# ):
-#     """
-#     Associate a device with the current user.
-    
-#     This endpoint allows a user to associate a CCT device with their account.
-#     The user must be authenticated.
-#     """
-#     try:
-#         return user_service.associate_device_with_user(db, current_user.id, device_id)
-#     except ValueError as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-@router.get("/me/devices")
-def get_user_devices(
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get all devices associated with the current user, including association fields.
-    """
-    # Join devices with association table to get extra fields
-    results = (
-        db.query(
-            models.CCTDevice,
-            models.user_device_association.c.name,
-            models.user_device_association.c.type_of_device,
-            models.user_device_association.c.device_room,
-            models.user_device_association.c.min_temperature,
-            models.user_device_association.c.max_temperature,
-            models.user_device_association.c.on_off_indicator,
-        )
-        .join(
-            models.user_device_association,
-            models.CCTDevice.id == models.user_device_association.c.device_id,
-        )
-        .filter(models.user_device_association.c.user_id == current_user.id)
-        .all()
-    )
-
-    device_list = []
-    for device, name, type_of_device, device_room, min_temp, max_temp, on_off in results:
-        api_key_obj = db.query(models.APIKey).filter(
-            models.APIKey.device_id == device.id,
-            models.APIKey.is_active == True
-        ).first()
-        api_key = api_key_obj.key if api_key_obj else None
-
-        device_data = {col.name: getattr(device, col.name) for col in device.__table__.columns}
-        device_data["api_key"] = api_key
-        # Add association fields
-        device_data.update({
-            "name_in_association": name,
-            "type_of_device": type_of_device,
-            "device_room": device_room,
-            "min_temperature": min_temp,
-            "max_temperature": max_temp,
-            "on_off_indicator": on_off,
-        })
-        device_list.append(device_data)
-    return device_list
-
-@router.get("/me/notification-settings", response_model=schemas.NotificationSetting)
-def get_notification_settings(
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get notification settings for the current user.
-    
-    This endpoint allows a user to retrieve their notification settings.
-    The user must be authenticated.
-    """
-    settings = user_service.get_notification_settings(db, current_user.id)
-    if not settings:
-        raise HTTPException(status_code=404, detail="Notification settings not found")
-    return settings
-
-@router.put("/me/notification-settings", response_model=schemas.NotificationSetting)
-def update_notification_settings(
-    settings_update: schemas.NotificationSettingUpdate,
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Update notification settings for the current user.
-    
-    This endpoint allows a user to update their notification settings.
-    The user must be authenticated.
-    """
-    return user_service.update_notification_settings(db, current_user.id, settings_update)
-
-@router.post("/me/triggers", response_model=schemas.CustomTrigger)
-def create_custom_trigger(
-    trigger: schemas.CustomTriggerCreate,
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Create a custom notification trigger for the current user.
-    
-    This endpoint allows a user to create a custom temperature-based trigger.
-    The user must be authenticated.
-    """
-    try:
-        return user_service.create_custom_trigger(db, current_user.id, trigger)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@router.get("/me/triggers", response_model=List[schemas.CustomTrigger])
-def get_custom_triggers(
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get all custom triggers for the current user.
-    
-    This endpoint allows a user to retrieve all their custom triggers.
-    The user must be authenticated.
-    """
-    return user_service.get_custom_triggers(db, current_user.id)
-
-@router.put("/me/triggers/{trigger_id}", response_model=schemas.CustomTrigger)
-def update_custom_trigger(
-    trigger_id: int,
-    trigger_update: schemas.CustomTriggerUpdate,
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Update a custom trigger.
-    
-    This endpoint allows a user to update one of their custom triggers.
-    The user must be authenticated.
-    """
-    trigger = user_service.update_custom_trigger(db, trigger_id, current_user.id, trigger_update)
-    if not trigger:
-        raise HTTPException(status_code=404, detail="Custom trigger not found")
-    return trigger
-
-@router.delete("/me/triggers/{trigger_id}", response_model=schemas.CustomTrigger)
-def delete_custom_trigger(
-    trigger_id: int,
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Delete a custom trigger for the current user.
-    """
-    return user_service.delete_custom_trigger(db, current_user.id, trigger_id)
-
-# @router.patch("/me/devices/{device_id}", response_model=schemas.CCTDevice)
-# def update_user_device(
-#     device_id: str,
-#     update: dict = Body(...),
-#     current_user: schemas.User = Depends(get_current_active_user),
-#     db: Session = Depends(get_db)
-# ):
-#     """
-#     Update a device's name and status for the current user.
-#     """
-#     device = (
-#         db.query(models.CCTDevice)
-#         .join(models.user_device_association, models.CCTDevice.id == models.user_device_association.c.device_id)
-#         .filter(models.CCTDevice.device_id == device_id)
-#         .filter(models.user_device_association.c.user_id == current_user.id)
-#         .first()
-#     )
-#     if not device:
-#         raise HTTPException(status_code=404, detail="Device not found or not owned by user")
-
-#     if "name" in update:
-#         device.name = update["name"]
-#     if "is_active" in update:
-#         device.is_active = update["is_active"]
-
-#     db.commit()
-#     db.refresh(device)
-#     return device
-
-@router.post("/me/devices/{device_id}")
-def associate_and_update_device(
-    device_id: str,
-    device_update: schemas.DeviceAssociationUpdateRequest,
-    current_user: schemas.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Associate a device with the current user and update its details.
-    
-    This endpoint allows a user to associate a CCT device with their account
-    and update the device details like name and status.
-    The user must be authenticated.
-    """
-    try:
-        user_service.associate_device_with_user(
-            db, current_user.id, device_id, update_data=device_update
-        )
-        return {"success": True, "message": "Device associated and details updated"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@router.delete("/{user_id}/deregister", response_model=dict)
-def deregister_user(
-    user_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Deregister (delete) a user and all associated data.
-    """
-    try:
-        user_service.deregister_user(db, user_id)
-        return {"success": True, "message": "User and associated data deleted"}
-    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
